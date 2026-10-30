@@ -1,0 +1,151 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             (!('roxyPersonality' in data) || (data.roxyPersonality is string && data.roxyPersonality.size() <= 50));
+    }
+
+    function isValidNote(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 50000 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 50));
+    }
+
+    function isValidHabit(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.streak is int && data.streak >= 0 &&
+             (!('frequency' in data) || (data.frequency is string && data.frequency.size() <= 50)) &&
+             (!('lastCompletedDate' in data) || (data.lastCompletedDate is string && data.lastCompletedDate.size() <= 50));
+    }
+
+    function isValidMemory(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.summary is string && data.summary.size() > 0 && data.summary.size() <= 10000 &&
+             (!('keyFacts' in data) || (data.keyFacts is string && data.keyFacts.size() <= 20000)) &&
+             (!('mood' in data) || (data.mood is string && data.mood.size() <= 50));
+    }
+
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'roxyPersonality', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'roxyPersonality', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /notes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(noteId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().id == noteId &&
+                         incoming().keys().hasAll(['id', 'userId', 'title', 'content', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'title', 'content', 'category', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         isValidNote(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidNote(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'category', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      match /habits/{habitId} {
+        allow get: if isOwner(userId) && isValidId(habitId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().id == habitId &&
+                         incoming().keys().hasAll(['id', 'userId', 'title', 'streak', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'title', 'streak', 'frequency', 'lastCompletedDate', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         isValidHabit(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidHabit(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'streak', 'frequency', 'lastCompletedDate', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(habitId);
+      }
+
+      match /memories/{memoryId} {
+        allow get: if isOwner(userId) && isValidId(memoryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(memoryId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().id == memoryId &&
+                         incoming().keys().hasAll(['id', 'userId', 'summary', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'summary', 'keyFacts', 'mood', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         isValidMemory(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(memoryId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidMemory(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['summary', 'keyFacts', 'mood', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(memoryId);
+      }
+    }
+  }
+}

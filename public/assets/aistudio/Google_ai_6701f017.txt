@@ -1,0 +1,352 @@
+Google ai Studio Prompt to Build and Publish the Debug APK
+Prompt Start Here:
+â€”----------------------
+Prepare this completed Google AI Studio Android app for automatic debug APK building and
+GitHub Release publishing with GitHub Actions.
+Before creating anything, confirm that:
+gradle/libs.versions.toml
+contains exactly:
+agp = "9.1.1"
+If the AGP version is not exactly 9.1.1:
+â—   Stop immediately.
+â—   Report the detected AGP value.
+â—   Do not create the workflow.
+â—   Do not modify any file.
+If the AGP version is exactly 9.1.1, create only:
+.github/workflows/build-apk.yml
+Do not create, edit, delete, rename, format, upgrade, or replace any other repository file.
+
+Do not modify the Android app, source code, design, features, package name, application ID,
+manifest, resources, dependencies, Gradle project files, signing configuration, or project
+settings.
+The workflow must build the debug APK, preserve it as a normal GitHub Actions artifact, and
+publish the same APK directly under GitHub Releases for easy downloading on a phone.
+Workflow triggers
+Create a GitHub Actions workflow that:
+â—   Runs automatically on every push to the main branch.
+â—   Also supports workflow_dispatch.
+â—   Does not run on pull requests.
+â—   Uses ubuntu-latest.
+â—   Checks out the complete repository.
+â—   Runs all Gradle commands from the repository root.
+Workflow permissions
+Add only the permission required to create a GitHub Release:
+permissions:
+contents: write
+Do not request unnecessary permissions.
+Do not use a personal access token, repository secret, external API key, deployment key, or
+custom credential.
+Use only the workflow's built-in GitHub token for release creation:
+${{ github.token }}
+Java setup
+Set up Temurin Java 17 using actions/setup-java.
+Java must be configured before Gradle is configured or any Gradle command is executed.
+Add a step named:
+Verify Java environment
+
+That step must:
+â—   Run java -version.
+â—   Print JAVA_HOME.
+â—   Detect the active Java major version.
+â—   Confirm that the active Java major version is 17 or newer.
+â—   Fail clearly if Java is lower than 17.
+â—   Fail clearly if the Java version cannot be detected.
+Gradle setup
+Set up exactly Gradle 9.3.1 using gradle/actions/setup-gradle.
+Do not use:
+â—   Gradle 8.13
+â—   The repository Gradle wrapper
+â—   latest
+â—   current
+â—   release-candidate
+â—   nightly
+â—   Any Gradle version other than exactly 9.3.1
+Run all Gradle commands from the repository root.
+Temporary debug keystore
+Before building, add a step named:
+Create temporary debug keystore
+That step must:
+â—   Check whether ./debug.keystore already exists.
+â—   Generate it only when it is missing.
+â—   Use keytool from the configured Java 17 installation.
+â—   Use exactly:
+â—‹   Keystore password: android
+â—‹   Key alias: androiddebugkey
+â—‹   Key password: android
+â—‹   Distinguished name: CN=Android Debug,O=Android,C=US
+â—‹   Algorithm: RSA
+â—‹   Key size: 2048
+â—‹   Validity: 10000 days
+
+â—   Confirm that ./debug.keystore exists after generation.
+â—   Fail clearly if the keystore cannot be created.
+â—   Never commit the keystore.
+â—   Never cache the keystore.
+â—   Never print the keystore.
+â—   Never expose the keystore.
+â—   Never preserve the keystore after the workflow runner is removed.
+â—   Never upload the keystore as an artifact or release asset.
+Build the debug APK
+Build the debug APK using exactly:
+gradle :app:assembleDebug --stacktrace --no-daemon
+Do not replace this command with:
+â—   ./gradlew
+â—   gradlew
+â—   assembleRelease
+â—   bundleRelease
+â—   assemble
+â—   build
+â—   Any other Gradle command
+Verify the APK
+After the build, verify that this exact file exists:
+app/build/outputs/apk/debug/app-debug.apk
+If the exact file is missing:
+â—   Search only inside app/build/outputs/apk.
+â—   Print the APK paths discovered inside that directory.
+â—   Do not search the entire repository.
+â—   Do not select a release APK.
+â—   Do not select an Android test APK.
+â—   Do not select an APK from another module.
+â—   Do not upload or release an unrelated APK.
+â—   Fail clearly if the expected debug APK does not exist.
+Confirm that the selected APK:
+
+â—   Exists.
+â—   Is a regular file.
+â—   Is not empty.
+â—   Has the .apk extension.
+â—   Is exactly app/build/outputs/apk/debug/app-debug.apk.
+Upload the GitHub Actions artifact
+After APK verification, add a step named:
+Upload debug APK artifact
+Use actions/upload-artifact.
+Upload only:
+app/build/outputs/apk/debug/app-debug.apk
+Name the artifact exactly:
+app-debug-apk
+Configure artifact upload to fail when the APK is missing.
+Do not upload a directory containing unrelated files.
+Do not upload:
+â—   debug.keystore
+â—   Credentials
+â—   Source code
+â—   Gradle caches
+â—   Build caches
+â—   Configuration files
+â—   Secrets
+â—   Logs containing sensitive information
+â—   google-services.json
+â—   Firebase configuration files
+â—   Signing files
+The normal GitHub Actions artifact must remain available even after GitHub Release publishing
+is added.
+Prepare the APK release asset
+
+After the Actions artifact has been uploaded successfully, add a step named:
+Prepare APK release asset
+That step must:
+â—   Create a temporary directory inside the GitHub Actions runner for the release asset.
+â—   Do not create or commit this directory in the repository.
+â—   Copy only the verified APK into that temporary directory.
+â—   Give the copied APK a clear filename based on the repository name and workflow run
+number.
+â—   Sanitize the repository name before using it in the filename.
+â—   Use only safe filename characters.
+â—   Preserve the .apk extension.
+â—   Do not compress the APK.
+â—   Do not place the APK inside a ZIP file.
+â—   Do not rename any file inside the repository.
+â—   Do not modify the original APK.
+â—   Export the final release-asset path through GITHUB_OUTPUT for the release step.
+Use a release filename in this general format:
+repository-name-debug-build-run-number.apk
+For example:
+my-android-app-debug-build-12.apk
+Do not hard-code a specific app name or repository name.
+Publish the APK to GitHub Releases
+After the normal Actions artifact has been uploaded and the release asset has been prepared,
+add a step named:
+Publish APK to GitHub Releases
+Use the GitHub CLI command:
+gh release create
+Do not use an unverified third-party GitHub Release action.
+Authenticate GitHub CLI using:
+GH_TOKEN: ${{ github.token }}
+
+Before attempting release creation:
+â—   Run gh --version.
+â—   Confirm that GitHub CLI is available.
+â—   Confirm that the prepared release asset exists.
+â—   Confirm that the release asset is a non-empty .apk file.
+â—   Do not attempt release creation if APK validation fails.
+Unique release tag
+Create a unique tag for every workflow execution using both:
+â—   GITHUB_RUN_NUMBER
+â—   GITHUB_RUN_ATTEMPT
+Use this tag format:
+debug-apk-build-GITHUB_RUN_NUMBER-GITHUB_RUN_ATTEMPT
+For example:
+debug-apk-build-12-1
+Construct the tag dynamically at workflow runtime.
+Do not use a fixed tag such as:
+â—   latest
+â—   debug
+â—   build
+â—   v1
+â—   apk
+Do not overwrite, move, delete, or reuse an existing release tag.
+The unique tag must prevent a release conflict when:
+â—   A new commit is pushed.
+â—   The workflow is run manually.
+â—   A failed workflow is rerun.
+â—   The same workflow run is attempted again.
+Release contents
+Create a published GitHub Release with:
+
+Release title:
+Debug APK Build #GITHUB_RUN_NUMBER
+Release tag:
+debug-apk-build-GITHUB_RUN_NUMBER-GITHUB_RUN_ATTEMPT
+Target commit:
+GITHUB_SHA
+Release notes that clearly state:
+â—   This is an automatically generated debug APK.
+â—   The APK was built by GitHub Actions.
+â—   The GitHub Actions run number.
+â—   The GitHub Actions run attempt.
+â—   The source commit SHA.
+â—   The APK is intended for testing.
+â—   The APK is not a Play Store production release.
+â—   The APK is signed only with a temporary debug keystore.
+Attach only the prepared .apk file as the manually uploaded release asset.
+Do not manually attach:
+â—   A ZIP file
+â—   A source-code archive
+â—   A tar.gz file
+â—   The debug keystore
+â—   Credentials
+â—   Configuration files
+â—   Gradle files
+â—   Build caches
+â—   Logs
+â—   Secrets
+â—   Any APK other than the verified app debug APK
+GitHub may automatically display its standard Source code (zip) and Source code (tar.gz) links
+for the release. Do not attempt to create, upload, replace, remove, or modify those
+platform-generated links.
+Mark the newly created release explicitly as the latest release using:
+--latest
+
+Do not create the release as:
+â—   A draft
+â—   A prerelease
+â—   An immutable release requiring later manual publication
+The APK must be visible directly under the release Assets section after successful publishing.
+Release failure protection
+The GitHub Actions artifact must be uploaded before release publishing begins.
+Configure the release publishing step so that:
+â—   A release error does not remove or hide the successfully uploaded Actions artifact.
+â—   A release error does not cause the APK build result to be lost.
+â—   A release error is shown clearly as a warning.
+â—   The workflow summary clearly reports that the APK build and artifact upload succeeded
+even when release publishing fails.
+â—   The workflow does not falsely report that release publishing succeeded.
+â—   The release step uses continue-on-error: true.
+â—   No unrelated fallback release action is attempted.
+â—   No duplicate release is created as a fallback.
+Assign an id to the release step so its outcome can be checked later.
+Verify the release result
+After the release attempt, add a step named:
+Report APK download result
+This step must always run after the release attempt.
+If release publishing succeeded:
+â—   Confirm the release using gh release view.
+â—   Print the release tag.
+â—   Print the release title.
+â—   Print the direct GitHub Release page URL.
+â—   Print the exact APK asset filename.
+â—   Add the release page URL to GITHUB_STEP_SUMMARY.
+â—   Add a message explaining that the APK can be downloaded from the release Assets
+section.
+â—   State that the normal Actions artifact is also available as a backup.
+
+If release publishing failed:
+â—   Print a clear warning.
+â—   State that the APK build succeeded.
+â—   State that the Actions artifact named app-debug-apk remains available.
+â—   Add the same warning and backup instructions to GITHUB_STEP_SUMMARY.
+â—   Do not falsely print a release URL.
+â—   Do not fail the completed APK build solely because release publishing failed.
+Authenticate any gh command in this reporting step using:
+GH_TOKEN: ${{ github.token }}
+Security restrictions
+Do not create fake:
+â—   google-services.json files
+â—   Firebase files
+â—   API keys
+â—   Credentials
+â—   Personal access tokens
+â—   Release-signing files
+â—   Production keystores
+â—   Missing secrets
+â—   Placeholder secrets
+Do not expose:
+â—   GITHUB_TOKEN
+â—   GH_TOKEN
+â—   Environment credentials
+â—   Repository secrets
+â—   Keystore contents
+Do not echo authentication tokens into workflow logs.
+Do not persist credentials beyond the temporary GitHub Actions runner.
+Do not modify repository settings.
+Do not enable GitHub Pages.
+Do not create a website.
+Do not create a second workflow.
+
+Do not create a release manually while preparing the repository.
+The release must be created only when the generated workflow runs after I manually commit
+and push the workflow file.
+Final validation before finishing
+Before finishing, confirm all of the following:
+â—   Only .github/workflows/build-apk.yml was created.
+â—   No existing file was modified.
+â—   AGP 9.1.1 was confirmed from gradle/libs.versions.toml.
+â—   Java 17 is configured before Gradle.
+â—   The active Java version is verified.
+â—   Gradle 9.3.1 is used exactly.
+â—   The repository Gradle wrapper is not used.
+â—   The temporary debug keystore is created before the build.
+â—   The temporary debug keystore is never uploaded.
+â—   The build command is exactly gradle :app:assembleDebug --stacktrace --no-daemon.
+â—   The APK path is exactly app/build/outputs/apk/debug/app-debug.apk.
+â—   The Actions artifact name is exactly app-debug-apk.
+â—   actions/upload-artifact is configured to fail when the APK is missing.
+â—   The Actions artifact is uploaded before release publishing.
+â—   The release asset is an actual .apk file and not a ZIP.
+â—   Every workflow execution receives a unique release tag.
+â—   GITHUB_RUN_NUMBER and GITHUB_RUN_ATTEMPT are both used in the tag.
+â—   The release targets GITHUB_SHA.
+â—   The release is explicitly marked as latest.
+â—   The built-in GitHub token is used.
+â—   The workflow has contents: write permission.
+â—   No personal access token or repository secret is required.
+â—   Release failure does not remove the Actions artifact.
+â—   The workflow summary reports whether release publishing succeeded or failed.
+â—   No Android application or project file was modified.
+â—   No file other than .github/workflows/build-apk.yml was created.
+Give me a short workflow summary that includes:
+â—   The confirmed AGP version.
+â—   The Java version requirement.
+â—   The exact Gradle version.
+â—   The exact build command.
+â—   The APK path.
+â—   The Actions artifact name.
+
+â—   The release tag format.
+â—   The release asset filename format.
+â—   Confirmation that the latest successful release will contain a directly downloadable APK.
+â—   Confirmation that release failure will leave the Actions artifact available.
+Do not publish, commit, sync, push, tag, or create a GitHub Release now.
+Wait for me to manually commit and push the workflow file to GitHub.
+Prompt End
+â€”--------------

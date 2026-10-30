@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile for Roxy companion settings and owner identity",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The Firebase Auth UID of the user" },
+        "displayName": { "type": "string", "description": "The user's display name" },
+        "email": { "type": "string", "description": "The user's email address" },
+        "roxyPersonality": { "type": "string", "description": "Personality mode of Roxy" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the user document was created" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the user document was last updated" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "User notes captured by Roxy or manually created",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the note" },
+        "userId": { "type": "string", "description": "The Firebase Auth UID of the note owner" },
+        "title": { "type": "string", "description": "Title of the note" },
+        "content": { "type": "string", "description": "Content of the note" },
+        "category": { "type": "string", "description": "Category or tag for the note" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "userId", "title", "content", "createdAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Daily or weekly habits tracked with Roxy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the habit" },
+        "userId": { "type": "string", "description": "The Firebase Auth UID of the habit owner" },
+        "title": { "type": "string", "description": "Habit title or description" },
+        "streak": { "type": "integer", "description": "Current consecutive streak days" },
+        "frequency": { "type": "string", "description": "Frequency: Daily or Weekly" },
+        "lastCompletedDate": { "type": "string", "description": "Date string of last completion" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "userId", "title", "streak", "createdAt"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "Conversation memory and key facts stored by Roxy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the memory item" },
+        "userId": { "type": "string", "description": "The Firebase Auth UID of the memory owner" },
+        "summary": { "type": "string", "description": "Summary of the conversation or topic" },
+        "keyFacts": { "type": "string", "description": "Key takeaways remembered" },
+        "mood": { "type": "string", "description": "Roxy sassy mood during interaction" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "userId", "summary", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/UserProfile",
+      "description": "User profile collection root"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "#/entities/Note",
+      "description": "Subcollection of user notes"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": "#/entities/Habit",
+      "description": "Subcollection of user habits"
+    },
+    "/users/{userId}/memories/{memoryId}": {
+      "schema": "#/entities/Memory",
+      "description": "Subcollection of Roxy memories for this user"
+    }
+  }
+}
