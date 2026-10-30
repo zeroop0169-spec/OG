@@ -29,12 +29,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -92,6 +94,13 @@ fun RoxyLiveScreen(
     aiUiState: RoxyAiUiState = RoxyAiUiState.Idle,
     onAskRoxyAi: (String) -> Unit = {},
     onDismissAiDialog: () -> Unit = {},
+    isVoiceInputActive: Boolean = false,
+    voiceTranscript: String = "",
+    onStartVoiceToText: () -> Unit = {},
+    onStopVoiceToText: () -> Unit = {},
+    isTtsSpeaking: Boolean = false,
+    onStopTts: () -> Unit = {},
+    onSpeakTts: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -399,22 +408,61 @@ fun RoxyLiveScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Quick text prompt field for Gemini AI
+            // Quick text prompt field for Gemini AI with Voice-to-Text
             var quickTextPrompt by remember { mutableStateOf("") }
+
+            LaunchedEffect(voiceTranscript) {
+                if (voiceTranscript.isNotBlank()) {
+                    quickTextPrompt = voiceTranscript
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
             ) {
+                // Voice-to-Text mic button
+                IconButton(
+                    onClick = {
+                        if (isVoiceInputActive) {
+                            onStopVoiceToText()
+                        } else {
+                            onStartVoiceToText()
+                        }
+                    },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (isVoiceInputActive) CyberCyan else Color(0xFF1E293B))
+                        .border(1.dp, if (isVoiceInputActive) CyberCyan else Color(0xFF334155), CircleShape)
+                        .testTag("voice_to_text_mic_button")
+                ) {
+                    Icon(
+                        imageVector = if (isVoiceInputActive) Icons.Default.Mic else Icons.Default.MicOff,
+                        contentDescription = "Voice to Text",
+                        tint = if (isVoiceInputActive) Color.Black else CyberCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 OutlinedTextField(
                     value = quickTextPrompt,
                     onValueChange = { quickTextPrompt = it },
-                    placeholder = { Text("Ask Roxy anything (Gemini 3.8 Flash)...", fontSize = 12.sp, color = TextMuted) },
+                    placeholder = {
+                        Text(
+                            text = if (isVoiceInputActive) "Listening to your voice..." else "Ask Roxy anything (Voice / Text)...",
+                            fontSize = 12.sp,
+                            color = if (isVoiceInputActive) CyberCyan else TextMuted
+                        )
+                    },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = CyberPink,
-                        unfocusedBorderColor = Color(0xFF334155),
+                        unfocusedBorderColor = if (isVoiceInputActive) CyberCyan else Color(0xFF334155),
                         focusedContainerColor = Color(0xFF0F172A),
                         unfocusedContainerColor = Color(0xFF0F172A),
                         focusedTextColor = TextPrimary,
@@ -437,6 +485,7 @@ fun RoxyLiveScreen(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(CyberPink)
+                        .testTag("ask_roxy_send_button")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
@@ -536,10 +585,27 @@ fun RoxyLiveScreen(
                 AlertDialog(
                     onDismissRequest = onDismissAiDialog,
                     title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = CyberPink, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Roxy Speaks", color = CyberPink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = {
+                                    if (isTtsSpeaking) onStopTts() else onSpeakTts(state.content)
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isTtsSpeaking) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                                    contentDescription = "Speak verbal response",
+                                    tint = if (isTtsSpeaking) CyberPink else TextMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     },
                     text = {

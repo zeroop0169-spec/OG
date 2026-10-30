@@ -167,6 +167,9 @@ fun MainContent(viewModel: RoxyViewModel, currentUser: FirebaseUser) {
     val notesAnalysisState by viewModel.notesAnalysisState.collectAsStateWithLifecycle()
     val firebaseTestStatus by viewModel.firebaseTestStatus.collectAsStateWithLifecycle()
     val firestoreSyncStatus by viewModel.firestoreSyncStatus.collectAsStateWithLifecycle()
+    val isTtsSpeaking by viewModel.isTtsSpeaking.collectAsStateWithLifecycle()
+    val isVoiceInputActive by viewModel.isVoiceInputActive.collectAsStateWithLifecycle()
+    val voiceTranscript by viewModel.voiceTranscript.collectAsStateWithLifecycle()
 
     Scaffold(
         bottomBar = {
@@ -260,6 +263,23 @@ fun MainContent(viewModel: RoxyViewModel, currentUser: FirebaseUser) {
                         aiUiState = aiUiState,
                         onAskRoxyAi = { viewModel.askRoxyAi(it) },
                         onDismissAiDialog = { viewModel.dismissAiDialog() },
+                        isVoiceInputActive = isVoiceInputActive,
+                        voiceTranscript = voiceTranscript,
+                        onStartVoiceToText = {
+                            if (!hasRecordPermission) {
+                                val reqs = mutableListOf(Manifest.permission.RECORD_AUDIO)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    reqs.add(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                                permissionLauncher.launch(reqs.toTypedArray())
+                            } else {
+                                viewModel.startVoiceToText()
+                            }
+                        },
+                        onStopVoiceToText = { viewModel.stopVoiceToText() },
+                        isTtsSpeaking = isTtsSpeaking,
+                        onStopTts = { viewModel.stopSpeaking() },
+                        onSpeakTts = { viewModel.speakText(it) },
                         onToggleSession = {
                             viewModel.toggleSession(
                                 context = context,

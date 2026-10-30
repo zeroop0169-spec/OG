@@ -49,8 +49,30 @@ class RoxyViewModel(
     private val memoryRepository: MemoryRepository,
     private val securityManager: SecurityManager,
     private val geminiAiService: RoxyGeminiAiService,
-    private val firestoreRepository: com.example.data.repository.RoxyFirestoreRepository
+    private val firestoreRepository: com.example.data.repository.RoxyFirestoreRepository,
+    private val speechEngine: com.example.audio.RoxySpeechEngine? = null
 ) : ViewModel() {
+
+    // TextToSpeech & Voice-to-Text state
+    val isTtsSpeaking: StateFlow<Boolean> = speechEngine?.isSpeaking ?: MutableStateFlow(false)
+    val isVoiceInputActive: StateFlow<Boolean> = speechEngine?.isListening ?: MutableStateFlow(false)
+    val voiceTranscript: StateFlow<String> = speechEngine?.recognizedText ?: MutableStateFlow("")
+
+    fun startVoiceToText() {
+        speechEngine?.startListening()
+    }
+
+    fun stopVoiceToText() {
+        speechEngine?.stopListening()
+    }
+
+    fun speakText(text: String) {
+        speechEngine?.speak(text)
+    }
+
+    fun stopSpeaking() {
+        speechEngine?.stopSpeaking()
+    }
 
     // Status from foreground service
     val sessionStatus: StateFlow<RoxySessionStatus> = RoxyVoiceService.sessionStatus
@@ -224,7 +246,9 @@ class RoxyViewModel(
                     _aiUiState.value = RoxyAiUiState.Streaming(prompt, accumulated.toString())
                 }
                 if (accumulated.isNotBlank()) {
-                    _aiUiState.value = RoxyAiUiState.Success(prompt, accumulated.toString())
+                    val fullResponse = accumulated.toString()
+                    _aiUiState.value = RoxyAiUiState.Success(prompt, fullResponse)
+                    speechEngine?.speak(fullResponse)
                 } else {
                     _aiUiState.value = RoxyAiUiState.Error("Model returned an empty response.")
                 }
@@ -279,11 +303,18 @@ class RoxyViewModel(
     }
 
     fun dismissAiDialog() {
+        speechEngine?.stopSpeaking()
         _aiUiState.value = RoxyAiUiState.Idle
     }
 
     fun dismissNotesAnalysis() {
         _notesAnalysisState.value = NoteAnalysisUiState.Idle
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        speechEngine?.stopSpeaking()
+        speechEngine?.stopListening()
     }
 
     // Firebase Firestore Sync
@@ -348,7 +379,8 @@ class RoxyViewModel(
                 memoryRepository = application.memoryRepository,
                 securityManager = application.securityManager,
                 geminiAiService = application.geminiAiService,
-                firestoreRepository = application.firestoreRepository
+                firestoreRepository = application.firestoreRepository,
+                speechEngine = application.speechEngine
             ) as T
         }
     }

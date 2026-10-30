@@ -27,6 +27,9 @@ class RoxyApplication : Application() {
         ensureFirebaseApp()
         com.example.data.repository.RoxyFirestoreRepository(this)
     }
+    val speechEngine: com.example.audio.RoxySpeechEngine by lazy {
+        com.example.audio.RoxySpeechEngine(this)
+    }
 
     private fun ensureFirebaseApp() {
         if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) {
