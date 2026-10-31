@@ -258,6 +258,14 @@ fun MainContent(viewModel: RoxyViewModel, currentUser: FirebaseUser) {
                         waveform = waveform,
                         errorMessage = errorMessage,
                         activeToolNotification = activeToolNotif,
+                        hasRecordPermission = hasRecordPermission,
+                        onRequestPermission = {
+                            val reqs = mutableListOf(Manifest.permission.RECORD_AUDIO)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                reqs.add(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            permissionLauncher.launch(reqs.toTypedArray())
+                        },
                         mood = roxyMood,
                         onMoodChanged = { viewModel.setMood(it) },
                         aiUiState = aiUiState,

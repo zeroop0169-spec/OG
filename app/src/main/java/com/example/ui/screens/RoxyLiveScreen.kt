@@ -23,8 +23,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
@@ -89,6 +93,8 @@ fun RoxyLiveScreen(
     errorMessage: String?,
     activeToolNotification: ToolNotificationState?,
     onToggleSession: () -> Unit,
+    hasRecordPermission: Boolean = true,
+    onRequestPermission: () -> Unit = {},
     mood: RoxyMood = RoxyMood.SASSY,
     onMoodChanged: (RoxyMood) -> Unit = {},
     aiUiState: RoxyAiUiState = RoxyAiUiState.Idle,
@@ -148,6 +154,63 @@ fun RoxyLiveScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize()
         ) {
+            // Permission Rationale Banner when mic access is missing
+            if (!hasRecordPermission) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1022)),
+                    border = BorderStroke(1.dp, CyberPink.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .testTag("mic_permission_card")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(CyberPink.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = null,
+                                tint = CyberPink,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Microphone Access Required",
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Grant microphone permission to capture audio and talk to Roxy.",
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = onRequestPermission,
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.testTag("grant_mic_permission_button")
+                        ) {
+                            Text("Enable", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // Top App Bar Status Pill / Banner
             Spacer(modifier = Modifier.height(8.dp))
             Box(
@@ -235,7 +298,13 @@ fun RoxyLiveScreen(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = onToggleSession
+                        onClick = {
+                            if (!hasRecordPermission) {
+                                onRequestPermission()
+                            } else {
+                                onToggleSession()
+                            }
+                        }
                     )
                     .testTag("orb_mic_trigger")
             ) {
@@ -347,6 +416,88 @@ fun RoxyLiveScreen(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Dedicated Primary Microphone Capture Button
+            val isLiveActive = status == RoxySessionStatus.LISTENING ||
+                    status == RoxySessionStatus.SPEAKING ||
+                    status == RoxySessionStatus.THINKING ||
+                    status == RoxySessionStatus.CONNECTING
+
+            val micButtonContainer = when (status) {
+                RoxySessionStatus.LISTENING -> CyberCyan.copy(alpha = 0.2f)
+                RoxySessionStatus.SPEAKING -> CyberPink.copy(alpha = 0.2f)
+                RoxySessionStatus.THINKING -> CyberPurple.copy(alpha = 0.2f)
+                RoxySessionStatus.CONNECTING -> CyberAmber.copy(alpha = 0.2f)
+                else -> Color(0xFF131B2E)
+            }
+
+            val micButtonBorder = when (status) {
+                RoxySessionStatus.LISTENING -> CyberCyan
+                RoxySessionStatus.SPEAKING -> CyberPink
+                RoxySessionStatus.THINKING -> CyberPurple
+                RoxySessionStatus.CONNECTING -> CyberAmber
+                else -> CyberPink.copy(alpha = 0.7f)
+            }
+
+            val micButtonLabel = when (status) {
+                RoxySessionStatus.LISTENING -> "Roxy is Listening • Tap to Mute"
+                RoxySessionStatus.SPEAKING -> "Roxy is Speaking • Tap to Interrupt"
+                RoxySessionStatus.THINKING -> "Roxy is Thinking..."
+                RoxySessionStatus.CONNECTING -> "Connecting Microphone..."
+                RoxySessionStatus.ERROR -> "Connection Issue • Tap to Retry"
+                RoxySessionStatus.DISCONNECTED -> if (!hasRecordPermission) "Enable Microphone to Talk" else "Tap to Speak with Roxy"
+            }
+
+            Button(
+                onClick = {
+                    if (!hasRecordPermission) {
+                        onRequestPermission()
+                    } else {
+                        onToggleSession()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = micButtonContainer,
+                    contentColor = Color.White
+                ),
+                border = BorderStroke(1.5.dp, micButtonBorder),
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .padding(horizontal = 8.dp)
+                    .testTag("main_mic_button")
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (status == RoxySessionStatus.CONNECTING) {
+                        CircularProgressIndicator(
+                            color = CyberAmber,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isLiveActive) Icons.Default.Mic else Icons.Default.MicOff,
+                            contentDescription = "Microphone Button",
+                            tint = if (isLiveActive) micButtonBorder else CyberPink,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = micButtonLabel,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.4.sp
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.weight(0.9f))
 
