@@ -139,19 +139,27 @@ jobs:
       - name: Prepare APK release asset
         id: prepare_asset
         run: |
+          # Locate source APK: direct Gradle build output or search workspace
           SRC_APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$SRC_APK" ]; then
+            echo "Direct path $SRC_APK not found. Searching for .apk in workspace..."
+            SRC_APK=$(find . -type f -name "*.apk" ! -path "*/intermediates/*" | head -n 1)
+          fi
+
+          if [ -z "$SRC_APK" ] || [ ! -f "$SRC_APK" ]; then
+            echo "ERROR: No valid source .apk found in workspace."
+            exit 1
+          fi
+
+          echo "Located source APK at: $SRC_APK"
+
           TEMP_RELEASE_DIR="${RUNNER_TEMP}/roxy-release-asset"
           mkdir -p "$TEMP_RELEASE_DIR"
 
-          REPO_NAME=$(echo "${{ github.repository }}" | awk -F/ '{print $2}' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
-          if [ -z "$REPO_NAME" ]; then
-            REPO_NAME="android-app"
-          fi
-
-          RELEASE_FILENAME="${REPO_NAME}-debug-build-${{ github.run_number }}.apk"
+          RELEASE_FILENAME="ROXY-debug.apk"
           DEST_PATH="${TEMP_RELEASE_DIR}/${RELEASE_FILENAME}"
 
-          cp "$SRC_APK" "$DEST_PATH"
+          cp -f "$SRC_APK" "$DEST_PATH"
 
           if [ ! -s "$DEST_PATH" ]; then
             echo "ERROR: Failed to copy or verify prepared release asset at $DEST_PATH"
@@ -174,6 +182,31 @@ jobs:
           ASSET_PATH="${{ steps.prepare_asset.outputs.asset_path }}"
           ASSET_NAME="${{ steps.prepare_asset.outputs.asset_name }}"
 
+          # If ASSET_PATH output is empty, fall back to known valid locations
+          if [ -z "$ASSET_PATH" ] || [ ! -e "$ASSET_PATH" ]; then
+            echo "ASSET_PATH is unset or missing. Falling back to build artifacts..."
+            if [ -f "${RUNNER_TEMP}/roxy-release-asset/ROXY-debug.apk" ]; then
+              ASSET_PATH="${RUNNER_TEMP}/roxy-release-asset/ROXY-debug.apk"
+              ASSET_NAME="ROXY-debug.apk"
+            elif [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+              ASSET_PATH="app/build/outputs/apk/debug/app-debug.apk"
+              ASSET_NAME="ROXY-debug.apk"
+            fi
+          fi
+
+          # If ASSET_PATH is a directory (e.g. from artifact download), search inside it for the .apk
+          if [ -d "$ASSET_PATH" ]; then
+            echo "Detected ASSET_PATH as directory ($ASSET_PATH). Locating .apk file inside..."
+            FOUND_APK=$(find "$ASSET_PATH" -type f -name "*.apk" | head -n 1)
+            if [ -n "$FOUND_APK" ] && [ -f "$FOUND_APK" ]; then
+              ASSET_PATH="$FOUND_APK"
+              ASSET_NAME="ROXY-debug.apk"
+            else
+              echo "ERROR: No .apk found inside directory $ASSET_PATH"
+              exit 1
+            fi
+          fi
+
           if [ -z "$ASSET_PATH" ] || [ ! -s "$ASSET_PATH" ]; then
             echo "ERROR: Release asset does not exist or is empty at '$ASSET_PATH'."
             exit 1
@@ -182,13 +215,13 @@ jobs:
           case "$ASSET_PATH" in
             *.apk) ;;
             *)
-              echo "ERROR: Release asset does not have the .apk extension."
+              echo "ERROR: Release asset does not have the .apk extension. Resolved path: $ASSET_PATH"
               exit 1
               ;;
           esac
 
           RELEASE_TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Debug APK Build #${{ github.run_number }}"
+          RELEASE_TITLE="ROXY Debug APK Build #${{ github.run_number }}"
 
           RELEASE_NOTES=$(cat <<EOF
           ### ROXY Debug APK Build #${{ github.run_number }}
@@ -222,6 +255,9 @@ jobs:
           PUBLISH_OUTCOME="${{ steps.publish_release.outcome }}"
           RELEASE_TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
           ASSET_NAME="${{ steps.prepare_asset.outputs.asset_name }}"
+          if [ -z "$ASSET_NAME" ]; then
+            ASSET_NAME="ROXY-debug.apk"
+          fi
 
           if [ "$PUBLISH_OUTCOME" = "success" ]; then
             echo "=== GitHub Release Publishing Succeeded ==="
