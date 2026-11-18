@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.RoxyMood
 import com.example.service.RoxySessionStatus
 import com.example.tools.ToolNotificationState
+import com.example.ui.components.ListeningRippleAnimation
 import com.example.ui.components.OrbVisualizer
 import com.example.ui.components.RealtimeWaveformVisualizer
 import com.example.ui.components.SassMoodIndicator
@@ -289,89 +290,107 @@ fun RoxyLiveScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Central Glowing Orb Visualizer & Mic Button
+            val isListening = status == RoxySessionStatus.LISTENING || isVoiceInputActive
+
+            // Central Glowing Orb Visualizer & Mic Button with Subtle Listening Ripple Animation
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(290.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = {
-                            if (!hasRecordPermission) {
-                                onRequestPermission()
-                            } else {
-                                onToggleSession()
-                            }
-                        }
-                    )
-                    .testTag("orb_mic_trigger")
+                modifier = Modifier.size(370.dp)
             ) {
-                OrbVisualizer(
-                    status = status,
+                // Subtle ripple animation on the main screen that triggers when ROXY is listening to voice input
+                ListeningRippleAnimation(
+                    isListening = isListening,
                     audioLevel = audioLevel,
-                    mood = mood
+                    primaryColor = CyberCyan,
+                    accentColor = mood.secondaryColor,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .testTag("listening_ripple_animation")
                 )
-
-                // Central Button Hub infused with Sassy Mood Colors
-                val buttonGradient = when (status) {
-                    RoxySessionStatus.SPEAKING,
-                    RoxySessionStatus.LISTENING,
-                    RoxySessionStatus.THINKING,
-                    RoxySessionStatus.CONNECTING -> Brush.linearGradient(
-                        listOf(mood.primaryColor, mood.secondaryColor)
-                    )
-                    else -> Brush.linearGradient(
-                        listOf(Color(0xFF1E293B), Color(0xFF0F172A))
-                    )
-                }
 
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(80.dp)
-                        .scale(micScale)
+                        .size(290.dp)
                         .clip(CircleShape)
-                        .background(buttonGradient)
-                        .border(
-                            width = 2.dp,
-                            color = if (status != RoxySessionStatus.DISCONNECTED) mood.primaryColor.copy(alpha = 0.8f) else Color(0xFF334155),
-                            shape = CircleShape
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = {
+                                if (!hasRecordPermission) {
+                                    onRequestPermission()
+                                } else {
+                                    onToggleSession()
+                                }
+                            }
                         )
+                        .testTag("orb_mic_trigger")
                 ) {
-                    when (status) {
-                        RoxySessionStatus.DISCONNECTED -> {
-                            Icon(
-                                imageVector = Icons.Default.MicOff,
-                                contentDescription = "Start Voice Session",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(34.dp)
+                    OrbVisualizer(
+                        status = status,
+                        audioLevel = audioLevel,
+                        mood = mood
+                    )
+
+                    // Central Button Hub infused with Sassy Mood Colors
+                    val buttonGradient = when (status) {
+                        RoxySessionStatus.SPEAKING,
+                        RoxySessionStatus.LISTENING,
+                        RoxySessionStatus.THINKING,
+                        RoxySessionStatus.CONNECTING -> Brush.linearGradient(
+                            listOf(mood.primaryColor, mood.secondaryColor)
+                        )
+                        else -> Brush.linearGradient(
+                            listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                        )
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(80.dp)
+                            .scale(micScale)
+                            .clip(CircleShape)
+                            .background(buttonGradient)
+                            .border(
+                                width = 2.dp,
+                                color = if (status != RoxySessionStatus.DISCONNECTED) mood.primaryColor.copy(alpha = 0.8f) else Color(0xFF334155),
+                                shape = CircleShape
                             )
-                        }
-                        RoxySessionStatus.SPEAKING -> {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Roxy Speaking",
-                                tint = Color.White,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-                        RoxySessionStatus.THINKING -> {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = "Roxy Thinking",
-                                tint = CyberAmber,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-                        else -> {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Listening",
-                                tint = Color.White,
-                                modifier = Modifier.size(34.dp)
-                            )
+                    ) {
+                        when (status) {
+                            RoxySessionStatus.DISCONNECTED -> {
+                                Icon(
+                                    imageVector = Icons.Default.MicOff,
+                                    contentDescription = "Start Voice Session",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                            RoxySessionStatus.SPEAKING -> {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Roxy Speaking",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                            RoxySessionStatus.THINKING -> {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = "Roxy Thinking",
+                                    tint = CyberAmber,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                            else -> {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Listening",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
                         }
                     }
                 }
